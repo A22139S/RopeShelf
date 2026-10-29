@@ -8,7 +8,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets/RopeShelf.ico</ApplicationIcon>
     <AssemblyName>RopeShelf</AssemblyName>
-    <Version>0.1.1</Version>
+    <Version>0.1.2</Version>
     <Product>绳间 RopeShelf</Product>
     <Description>本地截图晾衣绳</Description>
   </PropertyGroup>

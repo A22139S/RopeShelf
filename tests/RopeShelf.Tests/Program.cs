@@ -202,7 +202,10 @@ internal static class Program
         using var intake = new FolderIntake(); var received = new TaskCompletionSource();
         intake.ImageReceived += (_, _) => received.TrySetResult(); intake.Watch([folder]);
         Directory.CreateDirectory(folder); var image = ImageCodec.FromBitmap(Fixture());
-        File.WriteAllBytes(Path.Combine(folder, "arrived.png"), image.Png);
+        var arrived = Path.Combine(folder, "arrived.png");
+        File.WriteAllBytes(arrived, image.Png);
+        // Files introduced in a newly created directory are new arrivals even if metadata is older.
+        File.SetCreationTimeUtc(arrived, DateTime.UtcNow.AddMinutes(-1));
         await received.Task.WaitAsync(TimeSpan.FromSeconds(7));
     }
     private static BitmapSource Fixture()

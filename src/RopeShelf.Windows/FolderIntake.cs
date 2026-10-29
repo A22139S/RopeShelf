@@ -10,13 +10,14 @@ public sealed class FolderIntake : IDisposable
     private readonly CancellationTokenSource cancellation = new();
     private readonly DateTime launched = DateTime.UtcNow;
     private readonly HashSet<string> desired = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> initiallyMissing = new(StringComparer.OrdinalIgnoreCase);
     private readonly object gate = new();
     private readonly Timer retryTimer;
     public FolderIntake() { retryTimer = new Timer(_ => RetryMissing(), null, 2000, 2000); }
     public event Action<string, DecodedImage>? ImageReceived;
     public event Action<string>? Error;
     public void Reset(IEnumerable<string> folders)
-    { lock (gate) { foreach (var watcher in watchers) watcher.Dispose(); watchers.Clear(); desired.Clear(); Watch(folders); } }
+    { lock (gate) { foreach (var watcher in watchers) watcher.Dispose(); watchers.Clear(); desired.Clear(); initiallyMissing.Clear(); Watch(folders); } }
     private void RetryMissing()
     {
         lock (gate)
@@ -35,30 +36,33 @@ public sealed class FolderIntake : IDisposable
             desired.Add(folder);
             try
             {
-                if (!Directory.Exists(folder)) { Error?.Invoke("监视目录不存在：" + folder); continue; }
+                if (!Directory.Exists(folder)) { initiallyMissing.Add(folder); Error?.Invoke("监视目录不存在：" + folder); continue; }
+                // Everything in a directory that did not exist at registration arrived afterwards.
+                // File timestamps can be preserved on copy, or rounded before the launch instant.
+                bool newDirectory = initiallyMissing.Contains(folder);
                 var watcher = new FileSystemWatcher(folder) { NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size,
                     InternalBufferSize = 32 * 1024 };
-                watcher.Created += (_, e) => Queue(e.FullPath);
-                watcher.Changed += (_, e) => Queue(e.FullPath);
-                watcher.Renamed += (_, e) => Queue(e.FullPath);
+                watcher.Created += (_, e) => Queue(e.FullPath, newDirectory);
+                watcher.Changed += (_, e) => Queue(e.FullPath, newDirectory);
+                watcher.Renamed += (_, e) => Queue(e.FullPath, newDirectory);
                 watcher.Deleted += (sender, e) => known.TryRemove(e.FullPath, out _);
-                watcher.Error += (_, _) => { Error?.Invoke("目录通知中断，正在补扫：" + folder); Scan(folder); };
+                watcher.Error += (_, _) => { Error?.Invoke("目录通知中断，正在补扫：" + folder); Scan(folder, newDirectory); };
                 watchers.Add(watcher); watcher.EnableRaisingEvents = true;
-                Scan(folder);
+                Scan(folder, newDirectory); initiallyMissing.Remove(folder);
             }
             catch (Exception e) { Error?.Invoke("无法监视目录：" + e.Message); }
         }
         }
     }
-    private void Scan(string folder)
+    private void Scan(string folder, bool newDirectory = false)
     {
-        try { foreach (var path in Directory.EnumerateFiles(folder).Take(20000)) Queue(path); }
+        try { foreach (var path in Directory.EnumerateFiles(folder).Take(20000)) Queue(path, newDirectory); }
         catch (Exception e) { Error?.Invoke("无法读取监视目录：" + e.Message); }
     }
-    private void Queue(string path)
+    private void Queue(string path, bool newDirectory = false)
     {
         if (cancellation.IsCancellationRequested || !ImageCodec.Extensions.Contains(Path.GetExtension(path)) || known.ContainsKey(path)) return;
-        try { if (File.Exists(path) && File.GetCreationTimeUtc(path) < launched) { known.TryAdd(path, 0); return; } } catch { }
+        try { if (!newDirectory && File.Exists(path) && File.GetCreationTimeUtc(path) < launched) { known.TryAdd(path, 0); return; } } catch { }
         if (pending.TryAdd(path, 0)) _ = ReadAsync(path);
     }
     private async Task ReadAsync(string path)
