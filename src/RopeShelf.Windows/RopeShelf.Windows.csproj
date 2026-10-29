@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+  <ItemGroup><ProjectReference Include="../RopeShelf.Core/RopeShelf.Core.csproj" /></ItemGroup>
+</Project>

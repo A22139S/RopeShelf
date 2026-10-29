@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets/RopeShelf.ico</ApplicationIcon>
+    <AssemblyName>RopeShelf</AssemblyName>
+    <Version>0.1.1</Version>
+    <Product>绳间 RopeShelf</Product>
+    <Description>本地截图晾衣绳</Description>
+  </PropertyGroup>
+  <ItemGroup><ProjectReference Include="../RopeShelf.Windows/RopeShelf.Windows.csproj" /></ItemGroup>
+</Project>
